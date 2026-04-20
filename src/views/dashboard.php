@@ -106,19 +106,38 @@
     <div class="container">
         <h1>Tauler Principal</h1>
 
+        <?php if ($missatge): ?>
+        <div style="background:#dcfce7; color:#166534; padding:15px; border-radius:8px; margin-bottom:20px;">
+            ✅ <?= htmlspecialchars($missatge) ?>
+        </div>
+        <?php endif; ?>
+
         <div class="welcome-card">
-            <h2>👋 Benvingut al sistema</h2>
-            <p style="margin-top:15px; color:#555;">
-                Ja tens accés a l'aplicació de gestió de temps.
-                Aquesta és la primera versió funcional de l'aplicació.
-            </p>
+            <h2>👋 Benvingut al sistema, <?= htmlspecialchars($_SESSION['user_nom']) ?></h2>
+            
+            <?php if ($sessioActual && $sessioActual['estat'] === 'activa'): ?>
+                <div style="margin-top:15px; padding:15px; background:#dcfce7; border-radius:8px;">
+                    <strong>🟢 Estàs fitxat des de:</strong> <?= date('H:i:s d/m/Y', strtotime($sessioActual['hora_entrada'])) ?>
+                </div>
+            <?php else: ?>
+                <div style="margin-top:15px; padding:15px; background:#fef3c7; border-radius:8px;">
+                    <strong>🟡 No estàs fitxat actualment</strong> - Marca entrada per començar el torn
+                </div>
+            <?php endif; ?>
         </div>
 
         <div class="grid">
-            <div class="card">
+            <form method="POST" action="/marcar-entrada" class="card">
                 <h3>🕒 Marcar Entrada</h3>
                 <p>Registra l'hora d'entrada al lloc de treball i comença la sessió laboral.</p>
-            </div>
+                <button type="submit" style="margin-top:15px; background:#667eea; color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; width:100%;">Marcar Entrada</button>
+            </form>
+
+            <form method="POST" action="/marcar-sortida" class="card">
+                <h3>🚪 Marcar Sortida</h3>
+                <p>Finalitza la sessió laboral i registra l'hora de sortida.</p>
+                <button type="submit" style="margin-top:15px; background:#ef4444; color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; width:100%;">Marcar Sortida</button>
+            </form>
 
             <div class="card">
                 <h3>📋 Projectes</h3>
@@ -128,11 +147,6 @@
             <div class="card">
                 <h3>📊 Informes</h3>
                 <p>Consulta els informes detallats de les hores treballades per setmana i mes.</p>
-            </div>
-
-            <div class="card">
-                <h3>👤 Perfil</h3>
-                <p>Gestiona les teves dades personals i la configuració del compte d'usuari.</p>
             </div>
         </div>
     </div>

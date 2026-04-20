@@ -77,7 +77,78 @@ switch ($request) {
             header('Location: /login');
             exit;
         }
-        load_view('dashboard');
+        
+        $db = getDBConnection();
+        $userId = $_SESSION['user_id'];
+        
+        // Comprovar estat sessió actual
+        $stmt = $db->prepare("SELECT id, hora_entrada, estat FROM sessions_treball WHERE user_id = ? ORDER BY id DESC LIMIT 1");
+        $stmt->execute([$userId]);
+        $sessioActual = $stmt->fetch();
+        
+        // Obtenir llistat projectes
+        $stmt = $db->prepare("SELECT id, codi, nom, client, estat FROM projectes WHERE actiu = 1 ORDER BY nom");
+        $stmt->execute();
+        $projectes = $stmt->fetchAll();
+        
+        load_view('dashboard', [
+            'sessioActual' => $sessioActual,
+            'projectes' => $projectes,
+            'missatge' => $_SESSION['missatge'] ?? null
+        ]);
+        
+        unset($_SESSION['missatge']);
+        break;
+
+    case '/marcar-entrada':
+        if (!isset($_SESSION['authenticated']) || !$_SESSION['authenticated'] || $method !== 'POST') {
+            header('Location: /dashboard');
+            exit;
+        }
+        
+        $db = getDBConnection();
+        $userId = $_SESSION['user_id'];
+        
+        // Comprovar si ja té sessió activa
+        $stmt = $db->prepare("SELECT id FROM sessions_treball WHERE user_id = ? AND estat = 'activa'");
+        $stmt->execute([$userId]);
+        
+        if (!$stmt->fetch()) {
+            // Crear nova sessió de treball
+            $stmt = $db->prepare("INSERT INTO sessions_treball (user_id, hora_entrada, estat) VALUES (?, NOW(), 'activa')");
+            $stmt->execute([$userId]);
+        }
+        
+        header('Location: /dashboard');
+        exit;
+        break;
+
+    case '/marcar-sortida':
+        if (!isset($_SESSION['authenticated']) || !$_SESSION['authenticated'] || $method !== 'POST') {
+            header('Location: /dashboard');
+            exit;
+        }
+        
+        $db = getDBConnection();
+        $userId = $_SESSION['user_id'];
+        
+        try {
+            // Comprovar primer si hi ha sessió activa
+            $stmt = $db->prepare("SELECT id FROM sessions_treball WHERE user_id = ? AND estat = 'activa'");
+            $stmt->execute([$userId]);
+            
+            if ($sessio = $stmt->fetch()) {
+                // Només si hi ha sessió activa la tanquem
+                $stmt = $db->prepare("UPDATE sessions_treball SET hora_sortida = NOW(), estat = 'finalitzada' WHERE id = ?");
+                $stmt->execute([$sessio['id']]);
+            }
+        } catch (PDOException $e) {
+            // Ignorar error de restricció única, sempre redirigir
+            error_log("Error marcar sortida: " . $e->getMessage());
+        }
+        
+        header('Location: /dashboard');
+        exit;
         break;
     
     default:
