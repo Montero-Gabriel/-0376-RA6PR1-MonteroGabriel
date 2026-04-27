@@ -38,7 +38,7 @@ $routes = [
 // Funció per carregar vistes
 function load_view($view, $data = []) {
     extract($data);
-    include "../src/views/{$view}.php";
+    include __DIR__ . "/../src/views/{$view}.php";
 }
 
 // Router principal
