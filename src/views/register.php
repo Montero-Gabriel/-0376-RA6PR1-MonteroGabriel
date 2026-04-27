@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Iniciar Sessió - Tracking d'Hores</title>
+    <title>Registrar Usuari - Tracking d'Hores</title>
     <style>
         * {
             margin: 0;
@@ -20,7 +20,7 @@
             justify-content: center;
         }
 
-        .login-box {
+        .register-box {
             background: white;
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
@@ -88,6 +88,28 @@
             text-align: center;
         }
 
+        .success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .links {
+            text-align: center;
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .links a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        
         .tabs {
             display: flex;
             margin-bottom: 30px;
@@ -114,46 +136,41 @@
         .tab:hover:not(.active) {
             background: #e9ecef;
         }
-
-        .back {
-            text-align: center;
-            margin-top: 20px;
-        }
-
-        .back a {
-            color: #667eea;
-            text-decoration: none;
-        }
     </style>
 </head>
 <body>
-    <div class="login-box">
+    <div class="register-box">
         <div class="tabs">
-            <a href="/login" class="tab active">Iniciar Sessió</a>
-            <a href="/register" class="tab">Registrar Usuari</a>
+            <a href="/login" class="tab">Iniciar Sessió</a>
+            <a href="/register" class="tab active">Registrar Usuari</a>
         </div>
 
-        <h1>🔐 Iniciar Sessió</h1>
+        <h1>📝 Nou Usuari</h1>
 
         <?php if (isset($error)): ?>
             <div class="error"><?= htmlspecialchars($error) ?></div>
         <?php endif; ?>
 
-        <form method="POST" action="/login">
+        <?php if (isset($success)): ?>
+            <div class="success"><?= htmlspecialchars($success) ?></div>
+        <?php endif; ?>
+
+        <form method="POST" action="/register">
             <div class="form-group">
                 <label>Nom d'usuari</label>
-                <input type="text" name="nom" required autofocus autocomplete="username">
+                <input type="text" name="nom" required autofocus>
             </div>
 
             <div class="form-group">
                 <label>Contrasenya</label>
-                <input type="password" name="password" required autocomplete="current-password">
+                <input type="password" name="password" required minlength="4" autocomplete="new-password">
             </div>
 
-            <button type="submit" class="btn">Entrar</button>
+            <button type="submit" class="btn">Crear Usuari</button>
         </form>
 
-        <div class="back">
+        <div class="links">
+            <a href="/login">Ja tens compte? Inicia sessió →</a>
             <a href="/">← Tornar a la pàgina principal</a>
         </div>
     </div>
