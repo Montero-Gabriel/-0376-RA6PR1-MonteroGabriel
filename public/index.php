@@ -22,8 +22,8 @@ session_start();
 // Carregar configuració
 require_once '../config/database.php';
 
-// Definir rutes
-$request = $_SERVER['REQUEST_URI'];
+// Definir rutes (limpiar query string)
+$request = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $method = $_SERVER['REQUEST_METHOD'];
 
 // Rutes públiques
@@ -73,6 +73,13 @@ switch ($request) {
             if ($sessioActiva) {
                 $_SESSION['sessio_activa'] = true;
                 $_SESSION['hora_entrada'] = $sessioActiva['hora_entrada'];
+                $_SESSION['sessio_id'] = $sessioActiva['id'];
+            } else {
+                // ✅ SI NO HAY SESION ACTIVA EN BD, BORRAMOS VARIABLES DE SESION (SOLUCION BUG FICHADO)
+                unset($_SESSION['sessio_activa']);
+                unset($_SESSION['hora_entrada']);
+                unset($_SESSION['projecte']);
+                unset($_SESSION['sessio_id']);
             }
                 
                 // Actualitzar última connexió
@@ -131,13 +138,30 @@ switch ($request) {
         $db = getDBConnection();
         $userId = $_SESSION['user_id'];
         
-            // Comprovar estat sessió actual
+            // Comprovar estat sessió actual (BUSCAR SESSIÓ ACTIVA, no la última per ID)
             try {
-                $stmt = $db->prepare("SELECT id, hora_entrada, estat FROM sessions_treball WHERE user_id = ? ORDER BY id DESC LIMIT 1");
+                $stmt = $db->prepare("SELECT id, hora_entrada, estat FROM sessions_treball WHERE user_id = ? AND estat = 'activa' LIMIT 1");
                 $stmt->execute([$userId]);
                 $sessioActual = $stmt->fetch();
+                
+                // ✅ SINCRONIZAR SIEMPRE ESTADO REAL CON BD (SOLUCION TODOS LOS BUGS DE FICHADO)
+                if ($sessioActual && $sessioActual['estat'] === 'activa') {
+                    $_SESSION['sessio_activa'] = true;
+                    $_SESSION['hora_entrada'] = $sessioActual['hora_entrada'];
+                    $_SESSION['sessio_id'] = $sessioActual['id'];
+                } else {
+                    unset($_SESSION['sessio_activa']);
+                    unset($_SESSION['hora_entrada']);
+                    unset($_SESSION['projecte']);
+                    unset($_SESSION['sessio_id']);
+                }
+                
             } catch(Exception $e) {
                 $sessioActual = false;
+                unset($_SESSION['sessio_activa']);
+                unset($_SESSION['hora_entrada']);
+                unset($_SESSION['projecte']);
+                unset($_SESSION['sessio_id']);
             }
         
         // Obtenir llistat projectes
@@ -160,8 +184,8 @@ switch ($request) {
                      JOIN registres_temps rt ON p.id = rt.projecte_id 
                      WHERE rt.user_id = u.id AND rt.estat = 'en_curs' LIMIT 1) as projecte
                 FROM users u
-                LEFT JOIN sessions_treball s ON u.id = s.user_id
-                ORDER BY s.hora_entrada DESC
+                LEFT JOIN sessions_treball s ON u.id = s.user_id AND s.estat = 'activa'
+                ORDER BY u.nom ASC
             ");
             $stmt->execute();
             $totsUsuaris = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -258,13 +282,18 @@ switch ($request) {
                 exit;
             }
 
-            // 1. Primer tancar registre de temps del projecte activo
-            $stmtRegistre = $db->prepare("UPDATE registres_temps SET hora_fi = NOW(), estat = 'finalitzat' WHERE user_id = ? AND estat = 'en_curs'");
-            $stmtRegistre->execute([$_SESSION['user_id']]);
-            
-            // 2. Despres tancar la sessió general de treball
-            $stmt = $db->prepare("UPDATE sessions_treball SET hora_sortida = NOW(), estat = 'finalitzada' WHERE user_id = ? AND estat = 'activa'");
-            $stmt->execute([$_SESSION['user_id']]);
+             // ✅ ANTES DE NADA OBTENEMOS ID SESION ACTIVA PARA TANCAR EXACTAMENTE LA MISMA
+             $stmtCheck = $db->prepare("SELECT id FROM sessions_treball WHERE user_id = ? AND estat = 'activa' LIMIT 1");
+             $stmtCheck->execute([$_SESSION['user_id']]);
+             $sessioActiva = $stmtCheck->fetch();
+             
+             // 1. PRIMERO TANCAR TODOS LOS REGISTROS DE TIEMPO ABIERTOS DE ESTA SESION
+             $stmtRegistre = $db->prepare("UPDATE registres_temps SET hora_fi = NOW(), estat = 'finalitzat' WHERE sessio_id = ? AND estat = 'en_curs'");
+             $stmtRegistre->execute([$sessioActiva['id']]);
+             
+             // 2. DESPUES TANCAR EXACTAMENTE ESTA SESION DE TRABAJO
+             $stmt = $db->prepare("UPDATE sessions_treball SET hora_sortida = NOW(), estat = 'finalitzada' WHERE id = ?");
+             $stmt->execute([$sessioActiva['id']]);
             
             // Tancar sessió de treball temporal
             unset($_SESSION['sessio_activa']);
@@ -278,6 +307,50 @@ switch ($request) {
             
         } catch (Exception $e) {
             $_SESSION['missatge'] = "❌ ERROR al marcar sortida: " . $e->getMessage();
+            header('Location: /dashboard');
+            exit;
+        }
+        break;
+    
+    // ──────────────────────────────────────────────
+    // ADMIN: DESFITXAR UN ALTRE USUARI (només admins)
+    // ──────────────────────────────────────────────
+    case preg_match('#^/admin/marcar-sortida/(\d+)$#', $request, $matches) === 1 && ($_SESSION['user_rol'] === 'administrador' || $_SESSION['user_rol'] === 'admin' || $_SESSION['user_rol'] === 'superadmin'):
+        $targetUserId = (int)$matches[1];
+        
+        if ($method !== 'POST') {
+            header('Location: /dashboard');
+            exit;
+        }
+        
+        try {
+            $db = getDBConnection();
+            
+            // Buscar sessió activa de l'usuari objectiu
+            $stmtCheck = $db->prepare("SELECT id FROM sessions_treball WHERE user_id = ? AND estat = 'activa' LIMIT 1");
+            $stmtCheck->execute([$targetUserId]);
+            $sessioActiva = $stmtCheck->fetch();
+            
+            if (!$sessioActiva) {
+                $_SESSION['missatge'] = "⚠️ Aquest usuari no té cap sessió activa!";
+                header('Location: /dashboard');
+                exit;
+            }
+            
+            // Tancar registres de temps
+            $stmtRegistre = $db->prepare("UPDATE registres_temps SET hora_fi = NOW(), estat = 'finalitzat' WHERE sessio_id = ? AND estat = 'en_curs'");
+            $stmtRegistre->execute([$sessioActiva['id']]);
+            
+            // Tancar sessió de treball
+            $stmt = $db->prepare("UPDATE sessions_treball SET hora_sortida = NOW(), estat = 'finalitzada' WHERE id = ?");
+            $stmt->execute([$sessioActiva['id']]);
+            
+            $_SESSION['missatge'] = "✅ Sessió de l'usuari tancada per l'administrador correctament!";
+            header('Location: /dashboard');
+            exit;
+            
+        } catch (Exception $e) {
+            $_SESSION['missatge'] = "❌ ERROR en desfitxar usuari: " . $e->getMessage();
             header('Location: /dashboard');
             exit;
         }

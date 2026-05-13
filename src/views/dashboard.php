@@ -186,29 +186,39 @@
                             <th style="padding:12px; text-align:left;">Estat</th>
                             <th style="padding:12px; text-align:left;">Hora Entrada</th>
                             <th style="padding:12px; text-align:left;">Hora Sortida</th>
-                            <th style="padding:12px; text-align:left; border-radius:0 8px 0 0;">Hores totals</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($totsUsuaris ?? [] as $usuari): ?>
-                        <tr style="border-bottom:1px solid #eee;">
-                            <td style="padding:12px;"><?= htmlspecialchars($usuari['id_usuari'] ?? $usuari['id'] ?? '-') ?></td>
-                            <td style="padding:12px;"><strong><?= htmlspecialchars($usuari['nom']) ?></strong></td>
-                            <td style="padding:12px;"><em><?= htmlspecialchars($usuari['projecte'] ?? $usuari['nom_projecte'] ?? '-') ?></em></td>
-                            <td style="padding:12px;">
-                                <?php if ($usuari['estat'] == 'activa'): ?>
-                                    <span style="color:green;">🟢 Fitxat</span>
-                                <?php elseif ($usuari['estat'] == 'finalitzada'): ?>
-                                    <span style="color:gray;">⚫ Finalitzat</span>
-                                <?php else: ?>
-                                    <span style="color:orange;">🟡 Sense fitxar</span>
-                                <?php endif; ?>
-                            </td>
-                            <td style="padding:12px;"><?= $usuari['hora_entrada'] ? date('H:i d/m', strtotime($usuari['hora_entrada'])) : '-' ?></td>
-                            <td style="padding:12px;"><?= $usuari['hora_sortida'] ? date('H:i d/m', strtotime($usuari['hora_sortida'])) : '-' ?></td>
-                            <td style="padding:12px;"><strong><?= $usuari['hores'] ?? '0' ?> h</strong></td>
-                        </tr>
-                        <?php endforeach; ?>
+                             <th style="padding:12px; text-align:left;">Hores totals</th>
+                             <th style="padding:12px; text-align:center; border-radius:0 8px 0 0;">Accions</th>
+                         </tr>
+                     </thead>
+                     <tbody>
+                         <?php foreach ($totsUsuaris ?? [] as $usuari): ?>
+                         <tr style="border-bottom:1px solid #eee;">
+                             <td style="padding:12px;"><?= htmlspecialchars($usuari['id_usuari'] ?? $usuari['id'] ?? '-') ?></td>
+                             <td style="padding:12px;"><strong><?= htmlspecialchars($usuari['nom']) ?></strong></td>
+                             <td style="padding:12px;"><em><?= htmlspecialchars($usuari['projecte'] ?? $usuari['nom_projecte'] ?? '-') ?></em></td>
+                             <td style="padding:12px;">
+                                 <?php if ($usuari['estat'] == 'activa'): ?>
+                                     <span style="color:green;">🟢 Fitxat</span>
+                                 <?php elseif ($usuari['estat'] == 'finalitzada'): ?>
+                                     <span style="color:gray;">⚫ Finalitzat</span>
+                                 <?php else: ?>
+                                     <span style="color:orange;">🟡 Sense fitxar</span>
+                                 <?php endif; ?>
+                             </td>
+                             <td style="padding:12px;"><?= $usuari['hora_entrada'] ? date('H:i d/m', strtotime($usuari['hora_entrada'])) : '-' ?></td>
+                             <td style="padding:12px;"><?= $usuari['hora_sortida'] ? date('H:i d/m', strtotime($usuari['hora_sortida'])) : '-' ?></td>
+                             <td style="padding:12px;"><strong><?= $usuari['hores'] ?? '0' ?> h</strong></td>
+                             <td style="padding:12px; text-align:center;">
+                                 <?php if ($usuari['estat'] == 'activa' && $usuari['id_usuari'] != $_SESSION['user_id']): ?>
+                                     <form method="POST" action="/admin/marcar-sortida/<?= $usuari['id_usuari'] ?>" onsubmit="return confirm('Estàs segur de desfitxar aquest usuari?')">
+                                         <button type="submit" style="background:#ef4444; color:white; border:none; padding:8px 14px; border-radius:6px; cursor:pointer; font-size:0.85rem; font-weight:600;">
+                                             ⛔ Desfitxar
+                                         </button>
+                                     </form>
+                                 <?php endif; ?>
+                             </td>
+                         </tr>
+                         <?php endforeach; ?>
                     </tbody>
                 </table>
             </div>
